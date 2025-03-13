@@ -1,7 +1,7 @@
 import streamlit as st
 import pandas as pd
 from sklearn.model_selection import train_test_split
-from sklearn.ensemble import RandomForestClassifier
+from sklearn.ensemble import RandomForestClassifier, GradientBoostingClassifier
 from sklearn.linear_model import LogisticRegression
 from sklearn.preprocessing import LabelEncoder
 from sklearn.metrics import confusion_matrix, accuracy_score
@@ -51,6 +51,7 @@ delay_mapping_manual = {
 
 # ----- Load Data and Prepare Training Set -----
 df = pd.read_csv('drt2565_06-2.csv')
+df_railway_example = pd.read_csv('drt2565_06-2.csv')
 
 # Drop unused columns (including time-related ones)
 df = df.drop(['ID', 'DATE', 'DETAIL', 'TRAIN_ID', 'ST1_ID', 'ST2_ID',
@@ -78,27 +79,73 @@ y = df['DELAY_ID']
 
 X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
 
-# Train models.
-model_rf = RandomForestClassifier(random_state=42)
+# ----- Improve Accuracy -----
+model_rf = RandomForestClassifier(
+    n_estimators=500,
+    max_depth=25,
+    min_samples_split=4,
+    min_samples_leaf=2,
+    random_state=42
+)
 model_rf.fit(X_train, y_train)
 
-model_lr = LogisticRegression(max_iter=1000)
+model_lr = LogisticRegression(
+    max_iter=3000,
+    C=0.3,
+    solver="lbfgs"
+)
 model_lr.fit(X_train, y_train)
 
+model_gb = GradientBoostingClassifier(
+    n_estimators=300,
+    learning_rate=0.05,
+    max_depth=10,
+    random_state=42
+)
+model_gb.fit(X_train, y_train)
+
 # ----- Define Streamlit Pages -----
+def uc():
+    st.title("หน้านี้ยังไม่พร้อมใช้งาน")
+
 def main_page():
-    st.title('Project: Machine Learning & Neural Network System')
-    st.write('จัดทำโดย ... ปรมะ')
-    st.write('6504062636195 ปรมะ ตันรัตนะ')
-    st.write('6604062636453 พงศ์ศิริ เลิศพงษ์ไทย')
+    st.title('Project')
+    st.subheader('Machine Learning & Neural Network System')
     st.write('---')
-    st.write('ในส่วนของ Demo จะใช้โมเดลสองแบบ (Random Forest และ Logistic Regression) '
-             'เพื่อทำนายผลกระทบของความล่าช้า (Delay) โดยใช้ข้อมูล: '
-             'เส้นทาง (Route), สถานที่ (Location), และ สาเหตุ (Reason).')
-    st.write('Operator ยังคงใช้ค่าตามข้อมูลที่มีใน CSV และไม่ได้ให้ผู้ใช้เลือกเอง.')
+    st.subheader('จัดทำโดย')
+    st.write('- 6504062636195 ปรมะ ตันรัตนะ')
+    st.write('- 6604062636453 พงศ์ศิริ เลิศพงษ์ไทย')
+    st.write('---')
+    st.subheader('แหล่งอ้างอิงข้อมูล')
+    st.write('Machine Learning: https://data.go.th/dataset/stat_incident_metro')
+    st.markdown('Neural Network: <span style="color:gray"><i>รอข้อมูล</i></span>', unsafe_allow_html=True)
+
+def desc_ml():
+    st.title('Machine Learning')
+    st.subheader('ข้อมูลการเกิดอุบัติเหตุทางรถไฟฟ้า')
+    st.write('---')
+    st.write('ข้อมูลการเกิดอุบัติเหตุทางรถไฟฟ้า ดึงมาจากเว็บของฐานข้อมูลรัฐ (data.go.th) ซึ่งมีการรวบรวมข้อมูลสถิติต่างๆ ไว้ เป็นไฟล์ .csv '
+             'สามารถ download ออกมาใช้ได้ ซึ่งข้อมูลที่เราดึงมาจากลิงค์นี้ https://data.go.th/dataset/stat_incident_metro')
+    st.write('---')
+    st.subheader('เนื้อหาข้อมูล')
+    st.write('ตามที่กล่าวไปข้างต้น ข้อมูลนี้จะรวบรวมสถิติการเกิดอุบัติเหตุทางรถไฟฟ้าใน กทม. โดยเก็บจากกรมการขนส่งทางราง ซึ่งข้อมูลมีความไม่เรียบร้อย '
+             'มีค่า null รวมถึง ID เป็น null ด้วย และข้อมูลนี้จะเก็บรายละเอียด เช่น')
+    st.write('- ประเภทอุบัติเหตุ (ประตูขัดข้อง, รางชำรุด, เหตุจากผู้โดยสาร, etc.)')
+    st.write('- ระยะเวลาในการเกิดเหตุ เช่น เหตุเกิดขึ้นน้อยกว่า 5 นาที (จนแก้ไขได้สำเร็จ)')
+    st.write('---')
+    st.subheader('ฟีเจอร์ที่ดึงมาใช้')
+    st.write('- รหัสสาย (สาย BTS, MRT สายสีน้ำเงิน, MRT สายสีม่วง, etc.)')
+    st.write('- รหัสที่เกิดเหตุ (เกิดในสถานี นอกสถานี)')
+    st.write('- ความล่าช้า (ไม่ระบุ, น้อยกว่า 5 นาที, มากกว่า 5 นาที)')
+    st.write('- ผู้ให้บริการ')
+    st.write('- ประเภทอุบัติเหตุ')
+    st.write('---')
+    st.subheader('ตัวอย่างข้อมูล')
+    st.dataframe(df_railway_example.head())
 
 def demo_ml():
-    st.title('Demo: การทำนายอุบัติเหตุทางรถไฟฟ้า')
+    st.title('Demo (Machine Learning)')
+    st.subheader('การทำนายความล่าช้าจากอุบัติเหตุทางรถไฟฟ้า')
     model_choice = st.selectbox('เลือกโมเดล', ['Random Forest', 'Logistic Regression'])
 
     # Input widgets for route, location, and reason.
@@ -154,7 +201,10 @@ def demo_ml():
 # ----- Navigation -----
 pages = {
     'หน้าหลัก': main_page,
-    'Demo Machine Learning': demo_ml
+    'คำอธิบาย Machine Learning': desc_ml,
+    'คำอธิบาย Neural Network': uc,
+    'Demo: Machine Learning': demo_ml,
+    'Demo: Neural Network': uc
 }
 
 selected_page = st.sidebar.selectbox('เลือกหน้า', list(pages.keys()))
