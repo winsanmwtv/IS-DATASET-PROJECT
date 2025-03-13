@@ -2,133 +2,159 @@ import streamlit as st
 import pandas as pd
 from sklearn.model_selection import train_test_split
 from sklearn.ensemble import RandomForestClassifier
+from sklearn.linear_model import LogisticRegression
 from sklearn.preprocessing import LabelEncoder
-from sklearn.metrics import confusion_matrix
+from sklearn.metrics import confusion_matrix, accuracy_score
 import matplotlib.pyplot as plt
 import seaborn as sns
-import re
 
-# โหลดข้อมูล CSV
-df_railway = pd.read_csv('drt2565_06-2.csv')
-
-# แปลง MONTH เป็นตัวเลข
-month_mapping = {
-    'มกราคม': 1, 'กุมภาพันธ์': 2, 'มีนาคม': 3, 'เมษายน': 4, 'พฤษภาคม': 5, 'มิถุนายน': 6,
-    'กรกฎาคม': 7, 'สิงหาคม': 8, 'กันยายน': 9, 'ตุลาคม': 10, 'พฤศจิกายน': 11, 'ธันวาคม': 12
+# ----- MAPPINGS for Demo Inputs and Display -----
+route_mapping = {
+    'BTS สายสุขุมวิท': 1,
+    'BTS สายสีลม': 2,
+    'MRT สายสีน้ำเงิน': 3,
+    'Airport Rail Link': 4,
+    'MRT สายสีม่วง': 5,
+    'BTS สายสีทอง': 6,
+    'SRT สายสีแดงเหนือ': 7,
+    'SRT สายสีแดงตะวันตก': 8,
+    'MRT สายสีเหลือง': 9,
+    'MRT สายสีชมพู': 10
 }
-df_railway['MONTH'] = df_railway['MONTH'].map(month_mapping)
-df_railway['MONTH'].fillna(df_railway['MONTH'].mean(), inplace=True)
 
-# แปลง TIME เป็น HOUR และ MINS
-def parse_time(time_str):
-    if pd.isnull(time_str):
-        return None, None
-    if isinstance(time_str, (int, float)):
-        hour = int(time_str)
-        return hour, 0
-    match = re.match(r'(\d+)(?:\.(\d+))?', str(time_str))
-    if match:
-        hour = int(match.group(1))
-        minute = int(match.group(2)) if match.group(2) else 0
-        return hour, minute
-    return None, None
+location_mapping = {
+    'ภายในสถานี': 1,
+    'ระหว่างสถานี': 2
+}
 
-df_railway[['HOUR', 'MINS']] = df_railway['TIME'].apply(lambda x: pd.Series(parse_time(x)))
+reason_mapping = {
+    '01 ระบบขับเคลื่อน': 1,
+    '02 ระบบเบรก': 2,
+    '03 ระบบประตู': 3,
+    '04 ระบบจ่ายไฟ': 4,
+    '05 อุปกรณ์ในราง': 5,
+    '06 จุดสับราง': 6,
+    '07 ระบบนับเพลา': 7,
+    '08 อาณัติสัญญาณ': 8,
+    '09 วัสดุแปลกปลอม': 9,
+    '10 อื่นๆ': 10,
+    '11 ผู้โดยสาร': 11,
+    '12 ระบบอัตโนมัติ': 12
+}
 
-# จัดการค่าว่างใน TIME
-df_railway.dropna(subset=['HOUR', 'MINS'], inplace=True)
-df_railway.drop('TIME', axis=1, inplace=True)
+delay_mapping_manual = {
+    'A': 'A ไม่มีผลกระทบ',
+    'B': 'B น้อยกว่า 5 นาที',
+    'C': 'C มากกว่า 5 นาที',
+    'O': 'O null'
+}
 
-# จัดการค่าว่างใน HOUR และ MINS (หลังจากลบแถว)
-df_railway['HOUR'].fillna(df_railway['HOUR'].mean(), inplace=True)
-df_railway['MINS'].fillna(df_railway['MINS'].mean(), inplace=True)
+# ----- Load Data and Prepare Training Set -----
+df = pd.read_csv('drt2565_06-2.csv')
 
-# สร้าง YEAR
-df_railway['YEAR'] = pd.to_datetime(df_railway['DATE']).dt.year
+# Drop unused columns (including time-related ones)
+df = df.drop(['ID', 'DATE', 'DETAIL', 'TRAIN_ID', 'ST1_ID', 'ST2_ID',
+              'MONTH', 'YEAR', 'TIME', 'HOUR', 'MINS'], axis=1, errors='ignore')
 
-# เตรียมข้อมูลสำหรับ Machine Learning
-le_line = LabelEncoder()
-df_railway['LINE_ID'] = le_line.fit_transform(df_railway['LINE_ID'])
-le_delay = LabelEncoder()
-df_railway['DELAY_ID'] = le_delay.fit_transform(df_railway['DELAY_ID'])
+# Ensure numeric conversion for LINE_ID, PLACE_ID, and CAUSE_ID.
+df['LINE_ID'] = pd.to_numeric(df['LINE_ID'], errors='coerce')
+df['PLACE_ID'] = pd.to_numeric(df['PLACE_ID'], errors='coerce')
+df['CAUSE_ID'] = pd.to_numeric(df['CAUSE_ID'], errors='coerce')
+
+# Impute missing numeric values.
+df.fillna(df.mean(numeric_only=True), inplace=True)
+
+# Label-encode OPERATOR and DELAY_ID.
 le_operator = LabelEncoder()
-df_railway['OPERATOR'] = le_operator.fit_transform(df_railway['OPERATOR'])
-le_cause = LabelEncoder()
-df_railway['CAUSE_ID'] = le_cause.fit_transform(df_railway['CAUSE_ID'])
+df['OPERATOR'] = le_operator.fit_transform(df['OPERATOR'])  # Keeps original OPERATOR values from CSV
 
-# ตัดคอลัมน์ที่ไม่ต้องการ (ไม่รวม DELAY_ID, YEAR, MONTH, HOUR, MINS)
-X_railway = df_railway.drop(['ID', 'DATE', 'DETAIL', 'TRAIN_ID', 'ST1_ID', 'ST2_ID'], axis=1)
-y_railway = df_railway['DELAY_ID']
-X_train_railway, X_test_railway, y_train_railway, y_test_railway = train_test_split(X_railway, y_railway, test_size=0.2, random_state=42)
+le_delay = LabelEncoder()
+df['DELAY_ID'] = le_delay.fit_transform(df['DELAY_ID'])
+delay_classes = {i: cls for i, cls in enumerate(le_delay.classes_)}
 
-# สร้างและฝึกโมเดล Machine Learning (Random Forest)
-model_rf = RandomForestClassifier()
-model_rf.fit(X_train_railway, y_train_railway)
+# Feature set: LINE_ID, PLACE_ID, OPERATOR, CAUSE_ID.
+X = df[['LINE_ID', 'PLACE_ID', 'OPERATOR', 'CAUSE_ID']]
+y = df['DELAY_ID']
 
-# หน้า 1: อธิบาย Machine Learning (อุบัติเหตุทางรถไฟฟ้า)
-def page1():
-    st.title('Machine Learning: การทำนายอุบัติเหตุทางรถไฟฟ้า')
-    st.write('อธิบายแนวทางการพัฒนา, ทฤษฎีของอัลกอริทึม, และขั้นตอนการพัฒนาโมเดล')
-    st.write('ข้อมูลที่ใช้: ข้อมูลอุบัติเหตุทางรถไฟฟ้า (CSV)')
-    st.dataframe(df_railway.head())
-    st.write('โมเดลที่ใช้: Random Forest')
-    st.write('อัลกอริทึม Random Forest เป็นอัลกอริทึมที่ใช้การตัดสินใจแบบต้นไม้หลายต้นมาช่วยในการตัดสินใจ')
-    st.write('ขั้นตอนการพัฒนา: เตรียมข้อมูล, สร้างและฝึกโมเดล, ประเมินโมเดล')
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
 
-# หน้า 2: อธิบาย Neural Network (ตรวจจับหลุมถนน)
-def page2():
-    st.title('Neural Network: การตรวจจับหลุมถนนจากรูปภาพ (จำลอง)')
-    st.write('อธิบายแนวทางการพัฒนา, ทฤษฎีของอัลกอริทึม, และขั้นตอนการพัฒนาโมเดล')
-    st.write('เนื่องจากไม่มีโมเดล Neural Network ที่ฝึกไว้ จะแสดงผลการทำงานจำลอง')
-    st.write('ขั้นตอนการพัฒนา: รวบรวมข้อมูลรูปภาพ, เตรียมข้อมูล, สร้างและฝึกโมเดล, ประเมินโมเดล')
-    st.write('โมเดล Neural Network ที่ใช้: Convolutional Neural Network (CNN)')
-    st.write('CNN เป็นโมเดลที่เหมาะสมกับการประมวลผลรูปภาพ')
+# Train models.
+model_rf = RandomForestClassifier(random_state=42)
+model_rf.fit(X_train, y_train)
 
-# หน้า 3: Demo Machine Learning (อุบัติเหตุทางรถไฟฟ้า)
-def page3():
+model_lr = LogisticRegression(max_iter=1000)
+model_lr.fit(X_train, y_train)
+
+# ----- Define Streamlit Pages -----
+def main_page():
+    st.title('Project: Machine Learning & Neural Network System')
+    st.write('จัดทำโดย ... ปรมะ')
+    st.write('6504062636195 ปรมะ ตันรัตนะ')
+    st.write('6604062636453 พงศ์ศิริ เลิศพงษ์ไทย')
+    st.write('---')
+    st.write('ในส่วนของ Demo จะใช้โมเดลสองแบบ (Random Forest และ Logistic Regression) '
+             'เพื่อทำนายผลกระทบของความล่าช้า (Delay) โดยใช้ข้อมูล: '
+             'เส้นทาง (Route), สถานที่ (Location), และ สาเหตุ (Reason).')
+    st.write('Operator ยังคงใช้ค่าตามข้อมูลที่มีใน CSV และไม่ได้ให้ผู้ใช้เลือกเอง.')
+
+def demo_ml():
     st.title('Demo: การทำนายอุบัติเหตุทางรถไฟฟ้า')
-    line_id = st.selectbox('เส้นทาง', X_train_railway['LINE_ID'].unique())
-    place_id = st.radio('สถานที่', [1, 2])
-    operator = st.selectbox('ผู้ให้บริการ', X_train_railway['OPERATOR'].unique())
-    cause_id = st.selectbox('สาเหตุ', X_train_railway['CAUSE_ID'].unique())
+    model_choice = st.selectbox('เลือกโมเดล', ['Random Forest', 'Logistic Regression'])
+
+    # Input widgets for route, location, and reason.
+    selected_route = st.selectbox('Route (เส้นทาง)', list(route_mapping.keys()))
+    selected_location = st.radio('Location (สถานที่)', list(location_mapping.keys()))
+    selected_reason = st.selectbox('Reason (สาเหตุ)', list(reason_mapping.keys()))
 
     if st.button('ทำนาย'):
-        input_data = pd.DataFrame([[line_id, place_id, operator, cause_id]],
-                                 columns=['LINE_ID', 'PLACE_ID', 'OPERATOR', 'CAUSE_ID'])
-        input_data = input_data[X_train_railway.columns]
-        prediction = model_rf.predict(input_data)
-        st.write(f'ผลการทำนาย: {prediction[0]}')
+        # Build input data using our mappings.
+        input_data = pd.DataFrame([{
+            'LINE_ID': route_mapping[selected_route],
+            'PLACE_ID': location_mapping[selected_location],
+            'OPERATOR': df[df['LINE_ID'] == route_mapping[selected_route]]['OPERATOR'].mode()[0],  # Use OPERATOR from CSV
+            'CAUSE_ID': reason_mapping[selected_reason]
+        }])
 
-        # Confusion Matrix
-        y_pred = model_rf.predict(X_test_railway)
-        cm = confusion_matrix(y_test_railway, y_pred)
+        if model_choice == 'Random Forest':
+            prediction = model_rf.predict(input_data)
+            y_pred = model_rf.predict(X_test)
+            acc = accuracy_score(y_test, model_rf.predict(X_test)) * 100
+        else:
+            prediction = model_lr.predict(input_data)
+            y_pred = model_lr.predict(X_test)
+            acc = accuracy_score(y_test, model_lr.predict(X_test)) * 100
+
+        pred_code = delay_classes[prediction[0]]
+        pred_delay = delay_mapping_manual.get(pred_code, pred_code)
+
+        st.write(f'ผลการทำนาย ({model_choice}): {pred_delay}')
+        st.write(f'Accuracy: {acc:.2f}%')
+
+        cm = confusion_matrix(y_test, y_pred)
         st.write('Confusion Matrix:')
         fig, ax = plt.subplots()
         sns.heatmap(cm, annot=True, fmt='d', ax=ax)
         st.pyplot(fig)
 
-        # Chart
-        st.write('Feature Importance:')
-        feature_importance = pd.Series(model_rf.feature_importances_, index=X_train_railway.columns)
-        fig_chart = plt.figure()
-        feature_importance.sort_values().plot(kind='barh')
-        st.pyplot(fig_chart)
+        if model_choice == 'Random Forest':
+            st.write('Feature Importance:')
+            feature_importance = pd.Series(model_rf.feature_importances_, index=X_train.columns)
+            fig_chart = plt.figure()
+            feature_importance.sort_values().plot(kind='barh')
+            st.pyplot(fig_chart)
+        else:
+            st.write('Feature Importance ไม่พร้อมใช้งานสำหรับ Logistic Regression.')
 
-# หน้า 4: Demo Neural Network (ตรวจจับหลุมถนน)
-def page4():
-    st.title('Demo: การตรวจจับหลุมถนนจากรูปภาพ (จำลอง)')
-    st.write('อธิบายแนวทางการพัฒนา, ทฤษฎีของอัลกอริทึม, และขั้นตอนการพัฒนาโมเดล')
-    st.write('เนื่องจากไม่มีโมเดล Neural Network ที่ฝึกไว้ จะแสดงผลการทำงานจำลอง')
-    st.write('ขั้นตอนการพัฒนา: รวบรวมข้อมูลรูปภาพ, เตรียมข้อมูล, สร้างและฝึกโมเดล, ประเมินโมเดล')
-    st.write('โมเดล Neural Network ที่ใช้: Convolutional Neural Network (CNN)')
-    st.write('CNN เป็นโมเดลที่เหมาะสมกับการประมวลผลรูปภาพ')
+        st.write('Prediction Result Chart:')
+        prediction_counts = pd.Series(y_pred).value_counts().sort_index()
+        fig_prediction = plt.figure()
+        prediction_counts.plot(kind='bar')
+        st.pyplot(fig_prediction)
 
-# สร้าง Navigation
+# ----- Navigation -----
 pages = {
-    'Machine Learning': page1,
-    'Neural Network': page2,
-    'Demo Machine Learning': page3,
-    'Demo Neural Network': page4
+    'หน้าหลัก': main_page,
+    'Demo Machine Learning': demo_ml
 }
 
 selected_page = st.sidebar.selectbox('เลือกหน้า', list(pages.keys()))
