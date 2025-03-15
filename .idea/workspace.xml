@@ -4,9 +4,7 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="12269af0-cdd1-4347-baaa-d19c3080473a" name="Changes" comment="">
-      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-    </list>
+    <list default="true" id="12269af0-cdd1-4347-baaa-d19c3080473a" name="Changes" comment="Add Keras" />
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
     <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
@@ -79,12 +77,33 @@
       <workItem from="1741843448663" duration="717000" />
       <workItem from="1741850185536" duration="1667000" />
       <workItem from="1742032077392" duration="914000" />
-      <workItem from="1742033031197" duration="1486000" />
+      <workItem from="1742033031197" duration="2281000" />
     </task>
+    <task id="LOCAL-00001" summary="Add Keras">
+      <option name="closed" value="true" />
+      <created>1742035561727</created>
+      <option name="number" value="00001" />
+      <option name="presentableId" value="LOCAL-00001" />
+      <option name="project" value="LOCAL" />
+      <updated>1742035561728</updated>
+    </task>
+    <task id="LOCAL-00002" summary="Add Keras">
+      <option name="closed" value="true" />
+      <created>1742035573076</created>
+      <option name="number" value="00002" />
+      <option name="presentableId" value="LOCAL-00002" />
+      <option name="project" value="LOCAL" />
+      <updated>1742035573076</updated>
+    </task>
+    <option name="localTasksCounter" value="3" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
     <option name="version" value="3" />
+  </component>
+  <component name="VcsManagerConfiguration">
+    <MESSAGE value="Add Keras" />
+    <option name="LAST_COMMIT_MESSAGE" value="Add Keras" />
   </component>
   <component name="com.intellij.coverage.CoverageDataManagerImpl">
     <SUITE FILE_PATH="coverage/IS_DATASET_PROJECT$app.coverage" NAME="app Coverage Results" MODIFIED="1741771157959" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
