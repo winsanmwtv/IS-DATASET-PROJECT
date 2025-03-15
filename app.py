@@ -7,6 +7,9 @@ from sklearn.preprocessing import LabelEncoder
 from sklearn.metrics import confusion_matrix, accuracy_score
 import matplotlib.pyplot as plt
 import seaborn as sns
+from tensorflow import keras
+from tensorflow.keras import datasets, layers, models
+import numpy as np
 
 # ----- MAPPINGS for Demo Inputs and Display -----
 route_mapping = {
